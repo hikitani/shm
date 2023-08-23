@@ -107,7 +107,7 @@ func New(buffer []byte) (*Stream, error) {
 func tryBufferLock(ctx context.Context, lock *uint32, beat *uint64) (ok bool) {
 	defer func() {
 		if ok {
-			go heartBeat(ctx, beat)
+			go heartBeat(ctx, lock, beat)
 		}
 	}()
 
@@ -126,7 +126,7 @@ func tryBufferLock(ctx context.Context, lock *uint32, beat *uint64) (ok bool) {
 	return false
 }
 
-func heartBeat(ctx context.Context, beat *uint64) {
+func heartBeat(ctx context.Context, lock *uint32, beat *uint64) {
 	atomic.StoreUint64(beat, 0)
 
 	t := time.NewTicker(BeatInterval)
@@ -138,6 +138,7 @@ func heartBeat(ctx context.Context, beat *uint64) {
 			atomic.AddUint64(beat, 1)
 		case <-ctx.Done():
 			atomic.StoreUint64(beat, 0)
+			atomic.StoreUint32(lock, 0)
 			return
 		}
 	}
