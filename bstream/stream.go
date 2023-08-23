@@ -35,11 +35,9 @@ type Stream struct {
 	consumerBeat *uint64
 	head         *uint64
 	tail         *uint64
-	headCycle    *uint64
-	tailCycle    *uint64
 }
 
-func (s *Stream) Writer() (*Writer, error) {
+func (s *Stream) Writer(opts ...writerOption) (*Writer, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	if !tryBufferLock(ctx, s.producerLock, s.producerBeat) {
@@ -49,7 +47,15 @@ func (s *Stream) Writer() (*Writer, error) {
 
 	s.wctx = ctx
 	s.wcancel = cancel
-	return &Writer{Stream: s}, nil
+	w := &Writer{Stream: s}
+
+	for _, opt := range opts {
+		if err := opt(w); err != nil {
+			return nil, fmt.Errorf("apply option: %w", err)
+		}
+	}
+
+	return w, nil
 }
 
 func (s *Stream) Reader() (*Reader, error) {
@@ -72,9 +78,7 @@ func New(buffer []byte) (*Stream, error) {
 		unsafe.Sizeof(*s.consumerLock) +
 		unsafe.Sizeof(*s.consumerBeat) +
 		unsafe.Sizeof(*s.head) +
-		unsafe.Sizeof(*s.tail) +
-		unsafe.Sizeof(*s.headCycle) +
-		unsafe.Sizeof(*s.tailCycle)
+		unsafe.Sizeof(*s.tail)
 	if len(buffer) < int(minSize) {
 		return nil, fmt.Errorf("need %d bytes for reservation", minSize)
 	}
@@ -94,10 +98,6 @@ func New(buffer []byte) (*Stream, error) {
 	offset += unsafe.Sizeof(*s.head)
 	s.tail = (*uint64)(unsafe.Add(ptr, offset))
 	offset += unsafe.Sizeof(*s.tail)
-	s.headCycle = (*uint64)(unsafe.Add(ptr, offset))
-	offset += unsafe.Sizeof(*s.headCycle)
-	s.tailCycle = (*uint64)(unsafe.Add(ptr, offset))
-	offset += unsafe.Sizeof(*s.tailCycle)
 
 	s.b = buffer[offset:]
 	s.bufSize = uint64(len(s.b))

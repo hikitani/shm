@@ -1,5 +1,7 @@
 package bstream
 
+import "sync/atomic"
+
 type Reader struct {
 	*Stream
 }
@@ -10,6 +12,7 @@ func (s *Reader) Close() error {
 }
 
 func (s *Reader) Read(b []byte) (int, error) {
+BEGIN:
 	select {
 	case <-s.rctx.Done():
 		return 0, ErrReaderClosed
@@ -17,22 +20,16 @@ func (s *Reader) Read(b []byte) (int, error) {
 	}
 
 	h := *s.head
-	hc := *s.headCycle
 	t := *s.tail
-	tc := *s.tailCycle
 	var availSize uint64
 	if h < t {
-		availSize = s.bufSize - (t - h)
+		availSize = s.bufSize - (t - h) - 1
 	} else if h > t {
-		availSize = h - t
+		availSize = h - t - 1
 	} else {
-		if hc == tc {
-			availSize = s.bufSize
-		} else if tc > hc {
-			availSize = 0
-		}
+		availSize = s.bufSize - 1
 	}
-	used := s.bufSize - availSize
+	used := (s.bufSize - 1) - availSize
 	if used == 0 {
 		return 0, ErrStreamEmpty
 	}
@@ -43,9 +40,9 @@ func (s *Reader) Read(b []byte) (int, error) {
 	copy(b[:part1], s.b[h:h+part1])
 	copy(b[part1:part1+part2], b[:part2])
 
-	(*s.head) = (h + dataSize) % s.bufSize
-	if h+dataSize >= s.bufSize {
-		(*s.headCycle) += 1
+	newHead := (h + dataSize) % s.bufSize
+	if !atomic.CompareAndSwapUint64(s.head, h, newHead) {
+		goto BEGIN
 	}
 	return int(dataSize), nil
 }

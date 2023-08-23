@@ -1,7 +1,10 @@
 package bstream
 
+import "sync/atomic"
+
 type Writer struct {
 	*Stream
+	overwriteOldData bool
 }
 
 func (s *Writer) Close() error {
@@ -10,6 +13,7 @@ func (s *Writer) Close() error {
 }
 
 func (s *Writer) Write(b []byte) (int, error) {
+BEGIN:
 	select {
 	case <-s.wctx.Done():
 		return 0, ErrWriterClosed
@@ -18,24 +22,26 @@ func (s *Writer) Write(b []byte) (int, error) {
 
 	dataSize := uint64(len(b))
 	h := *s.head
-	hc := *s.headCycle
 	t := *s.tail
-	tc := *s.tailCycle
 	var availSize uint64
 	if h < t {
-		availSize = s.bufSize - (t - h)
+		availSize = s.bufSize - (t - h) - 1
 	} else if h > t {
-		availSize = h - t
+		availSize = h - t - 1
 	} else {
-		if hc == tc {
-			availSize = s.bufSize
-		} else if tc > hc {
-			availSize = 0
-		}
+		availSize = s.bufSize - 1
 	}
 
 	if availSize < dataSize {
-		return 0, ErrNotEnoughMemory
+		if !s.overwriteOldData {
+			return 0, ErrNotEnoughMemory
+		}
+
+		needOffset := dataSize - availSize
+		newHead := (h + needOffset) % s.bufSize
+		if !atomic.CompareAndSwapUint64(s.head, h, newHead) {
+			goto BEGIN
+		}
 	}
 
 	part1 := min(dataSize, s.bufSize-t)
@@ -44,8 +50,5 @@ func (s *Writer) Write(b []byte) (int, error) {
 	copy(s.b[:part2], b[part1:part1+part2])
 
 	(*s.tail) = (t + dataSize) % s.bufSize
-	if t+dataSize >= s.bufSize {
-		(*s.tailCycle) += 1
-	}
 	return int(dataSize), nil
 }

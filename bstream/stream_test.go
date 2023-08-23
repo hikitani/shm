@@ -8,7 +8,7 @@ import (
 )
 
 func TestStreamNormal(t *testing.T) {
-	var buf [56 + 13]byte
+	var buf [56 + 13 + 1]byte
 	s, err := New(buf[:])
 	require.NoError(t, err)
 	require.NotNil(t, s)
@@ -42,7 +42,7 @@ func TestStreamNormal(t *testing.T) {
 }
 
 func TestStreamIsFull(t *testing.T) {
-	var buf [56 + 5]byte
+	var buf [56 + 5 + 1]byte
 	s, err := New(buf[:])
 	require.NoError(t, err)
 	require.NotNil(t, s)
@@ -59,7 +59,7 @@ func TestStreamIsFull(t *testing.T) {
 }
 
 func TestStreamIsEmpty(t *testing.T) {
-	var buf [56 + 5]byte
+	var buf [56 + 5 + 1]byte
 	s, err := New(buf[:])
 	require.NoError(t, err)
 	require.NotNil(t, s)
@@ -74,7 +74,7 @@ func TestStreamIsEmpty(t *testing.T) {
 }
 
 func TestStreamIsClosed(t *testing.T) {
-	var buf [56 + 5]byte
+	var buf [56 + 5 + 1]byte
 	s, err := New(buf[:])
 	require.NoError(t, err)
 	require.NotNil(t, s)
@@ -104,7 +104,7 @@ func TestStreamProducerBusy(t *testing.T) {
 		t.Skip()
 	}
 
-	var buf [56 + 5]byte
+	var buf [56]byte
 	s, err := New(buf[:])
 	require.NoError(t, err)
 	require.NotNil(t, s)
@@ -122,7 +122,7 @@ func TestStreamAcquireProducer(t *testing.T) {
 		t.Skip()
 	}
 
-	var buf [56 + 5]byte
+	var buf [56]byte
 	s, err := New(buf[:])
 	require.NoError(t, err)
 	require.NotNil(t, s)
@@ -142,7 +142,7 @@ func TestStreamConsumerBusy(t *testing.T) {
 		t.Skip()
 	}
 
-	var buf [56 + 5]byte
+	var buf [56]byte
 	s, err := New(buf[:])
 	require.NoError(t, err)
 	require.NotNil(t, s)
@@ -160,7 +160,7 @@ func TestStreamAcquireConsumer(t *testing.T) {
 		t.Skip()
 	}
 
-	var buf [56 + 5]byte
+	var buf [56]byte
 	s, err := New(buf[:])
 	require.NoError(t, err)
 	require.NotNil(t, s)
